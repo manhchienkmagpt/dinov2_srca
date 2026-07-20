@@ -1,4 +1,4 @@
-﻿# Generated from DINOv2_SRCA_generalized.ipynb; CLI entry point is below.
+# Generated from DINOv2_SRCA_generalized.ipynb; CLI entry point is below.
 
 
 import io
@@ -14,7 +14,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 class RandomJPEGCompression:
-    """MÃ´ phá»ng khÃ¡c biá»‡t codec/cháº¥t lÆ°á»£ng giá»¯a cÃ¡c dataset."""
+    """Simulate codec and quality differences across datasets."""
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class RandomJPEGCompression:
 
 
 class RandomDownUpScale:
-    """Downsample rá»“i upscale Ä‘á»ƒ giáº£m shortcut theo Ä‘á»™ phÃ¢n giáº£i."""
+    """Downsample and then upscale to reduce resolution-based shortcuts."""
 
     def __init__(
         self,
@@ -67,8 +67,8 @@ class RandomDownUpScale:
         return image.resize((width, height), interpolation)
 
 
-# Hai view dÃ¹ng cÃ¹ng nhÃ£n nhÆ°ng cÃ³ degradation khÃ¡c nhau.
-# MÃ´ hÃ¬nh Ä‘Æ°á»£c Ã©p giá»¯ feature á»•n Ä‘á»‹nh trÆ°á»›c compression/blur/color shift.
+# The two views share the same label but use different degradations.
+# The model is encouraged to keep features stable under compression, blur, and color shifts.
 train_transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.RandomHorizontalFlip(p=0.5),
@@ -142,14 +142,14 @@ class FFPPDataset(Dataset):
         self.samples: list[Tuple[Path, int]] = []
 
         if not self.root_dir.exists():
-            raise FileNotFoundError(f"KhÃ´ng tÃ¬m tháº¥y: {self.root_dir}")
+            raise FileNotFoundError(f"Not found: {self.root_dir}")
 
         self._add_images("Real", 0)
         for folder_name in self.FAKE_FOLDERS:
             self._add_images(folder_name, 1)
 
         if not self.samples:
-            raise RuntimeError(f"KhÃ´ng tÃ¬m tháº¥y áº£nh trong {self.root_dir}")
+            raise RuntimeError(f"No images found in {self.root_dir}")
 
         real_count = sum(label == 0 for _, label in self.samples)
         fake_count = len(self.samples) - real_count
@@ -158,7 +158,7 @@ class FFPPDataset(Dataset):
     def _add_images(self, folder_name: str, label: int) -> None:
         folder = self.root_dir / folder_name
         if not folder.exists():
-            raise FileNotFoundError(f"KhÃ´ng tÃ¬m tháº¥y: {folder}")
+            raise FileNotFoundError(f"Not found: {folder}")
         paths = sorted(
             path for path in folder.rglob("*")
             if path.is_file() and path.suffix.lower() in self.VALID_EXTENSIONS
@@ -196,7 +196,7 @@ class CelebDFDataset(Dataset):
         for class_name, label in self.CLASS_TO_LABEL.items():
             folder = self.root_dir / class_name
             if not folder.exists():
-                raise FileNotFoundError(f"KhÃ´ng tÃ¬m tháº¥y: {folder}")
+                raise FileNotFoundError(f"Not found: {folder}")
             paths = sorted(
                 path for path in folder.rglob("*")
                 if path.is_file() and path.suffix.lower() in self.VALID_EXTENSIONS
@@ -204,7 +204,7 @@ class CelebDFDataset(Dataset):
             self.samples.extend((path, label) for path in paths)
 
         if not self.samples:
-            raise RuntimeError(f"KhÃ´ng tÃ¬m tháº¥y áº£nh trong {self.root_dir}")
+            raise RuntimeError(f"No images found in {self.root_dir}")
 
         real_count = sum(label == 0 for _, label in self.samples)
         fake_count = len(self.samples) - real_count
@@ -236,7 +236,7 @@ from torch.nn import functional as F
 
 class SRMFilter(nn.Module):
     """
-    Ba bá»™ lá»c high-pass kiá»ƒu SRM cá»‘ Ä‘á»‹nh.
+    Three fixed SRM-style high-pass filters.
 
     Input:
         x: B x 3 x H x W
@@ -244,8 +244,8 @@ class SRMFilter(nn.Module):
     Output:
         residual: B x 3 x H x W
 
-    Má»—i kernel Ä‘Æ°á»£c Ã¡p dá»¥ng lÃªn áº£nh grayscale Ä‘á»ƒ táº¡o ra
-    ba residual map khÃ¡c nhau.
+    Each kernel is applied to a grayscale image to produce
+    three distinct residual maps.
     """
 
     def __init__(
@@ -255,7 +255,7 @@ class SRMFilter(nn.Module):
     ) -> None:
         super().__init__()
 
-        # Kernel 1: residual báº­c hai.
+        # Kernel 1: second-order residual.
         kernel_1 = torch.tensor(
             [
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -267,7 +267,7 @@ class SRMFilter(nn.Module):
             dtype=torch.float32,
         ) / 4.0
 
-        # Kernel 2: high-pass dáº¡ng Laplacian má»Ÿ rá»™ng.
+        # Kernel 2: extended Laplacian high-pass filter.
         kernel_2 = torch.tensor(
             [
                 [-1.0, 2.0, -2.0, 2.0, -1.0],
@@ -279,7 +279,7 @@ class SRMFilter(nn.Module):
             dtype=torch.float32,
         ) / 12.0
 
-        # Kernel 3: residual cá»¥c bá»™.
+        # Kernel 3: local residual.
         kernel_3 = torch.tensor(
             [
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -375,7 +375,7 @@ class ConvNormAct(nn.Module):
 class DepthwiseSeparableBlock(nn.Module):
     """
     Depthwise convolution -> Pointwise convolution
-    kÃ¨m residual khi shape phÃ¹ há»£p.
+    with a residual connection when the shapes match.
     """
 
     def __init__(
@@ -428,15 +428,15 @@ class DepthwiseSeparableBlock(nn.Module):
 
 class MultiScaleCNNExtractor(nn.Module):
     """
-    CNN Ä‘a táº§ng dÃ¹ng cho cáº£ nhÃ¡nh RGB vÃ  nhÃ¡nh SRM.
+    Multi-scale CNN used for both the RGB and SRM branches.
 
-    Vá»›i input 224 x 224:
+    For a 224 x 224 input:
         Stage 1: 56 x 56
         Stage 2: 28 x 28
         Stage 3: 14 x 14
 
-    CÃ¡c feature sau Ä‘Ã³ Ä‘Æ°á»£c adaptive pooling vá» Ä‘Ãºng kÃ­ch thÆ°á»›c
-    patch grid cá»§a DINOv2, vÃ­ dá»¥ 16 x 16 khi áº£nh lÃ  224 x 224.
+    The features are then adaptively pooled to match the DINOv2
+    patch-grid size, for example 16 x 16 for a 224 x 224 image.
     """
 
     def __init__(
@@ -526,7 +526,7 @@ class MultiScaleCNNExtractor(nn.Module):
 
 class FeatureMapToTokens(nn.Module):
     """
-    Chuyá»ƒn CNN feature map thÃ nh local tokens.
+    Convert a CNN feature map into local tokens.
 
     B x C x H x W
         -> AdaptivePool(grid_h, grid_w)
@@ -579,7 +579,7 @@ class FeatureMapToTokens(nn.Module):
 
 class GatedLocalFusion(nn.Module):
     """
-    Há»c má»™t gate cho tá»«ng token vÃ  tá»«ng channel:
+    Learn a gate for each token and channel:
 
         fused = gate * RGB + (1 - gate) * SRM
     """
@@ -645,14 +645,14 @@ class GatedLocalFusion(nn.Module):
 
 class SpatialResidualCrossAttention(nn.Module):
     """
-    Module gá»“m hai bÆ°á»›c:
+    The module consists of two steps:
 
-    1. CNN refinement trÃªn patch token cá»§a DINOv2.
+    1. CNN refinement over DINOv2 patch tokens.
     2. Cross-attention:
            Query = DINO patch tokens
            Key, Value = fused RGB-SRM local tokens
 
-    CLS/register tokens Ä‘Æ°á»£c giá»¯ nguyÃªn.
+    CLS and register tokens remain unchanged.
     """
 
     def __init__(
@@ -675,7 +675,7 @@ class SpatialResidualCrossAttention(nn.Module):
         self.dino_dim = dino_dim
 
         # --------------------------------------------------
-        # CNN refinement trÃªn patch tokens
+        # CNN refinement over patch tokens.
         # --------------------------------------------------
         self.patch_norm_1 = nn.LayerNorm(dino_dim)
 
@@ -741,10 +741,10 @@ class SpatialResidualCrossAttention(nn.Module):
             nn.Dropout(dropout),
         )
 
-        # Hai gate há»c Ä‘Æ°á»£c.
+        # Two learned gates.
         #
-        # Khá»Ÿi táº¡o nhá» thay vÃ¬ Ä‘á»“ng thá»i Ä‘áº·t gate vÃ  output projection
-        # báº±ng 0, nháº±m trÃ¡nh module khÃ´ng nháº­n Ä‘Æ°á»£c gradient ban Ä‘áº§u.
+        # Use a small initialization instead of setting both the gate and output projection
+        # to zero, which would prevent initial gradient flow.
         self.conv_gate = nn.Parameter(
             torch.tensor(float(initial_gate))
         )
@@ -868,16 +868,16 @@ class SpatialResidualCrossAttention(nn.Module):
 
 class DINOv2SRCADetector(nn.Module):
     """
-    Detector hÆ°á»›ng tá»›i cross-dataset generalization:
+    Detector designed for cross-dataset generalization:
 
     DINOv2 ViT-B/14
       + RGB/SRM local multi-scale features
       + gated SRCA
       + semantic/forensic disentanglement
-      + invariant embedding cho consistency learning.
+      + invariant embedding for consistency learning.
 
-    forward(..., return_features=True) tráº£ vá» logits vÃ  cÃ¡c feature
-    cáº§n cho auxiliary losses.
+    forward(..., return_features=True) returns logits and the features required
+    by the auxiliary losses.
     """
 
     def __init__(
@@ -901,9 +901,9 @@ class DINOv2SRCADetector(nn.Module):
         super().__init__()
 
         if len(insert_positions) != 3:
-            raise ValueError("Cáº§n Ä‘Ãºng ba vá»‹ trÃ­ chÃ¨n SRCA.")
+            raise ValueError("Exactly three SRCA insertion positions are required.")
         if tuple(sorted(insert_positions)) != tuple(insert_positions):
-            raise ValueError("insert_positions pháº£i tÄƒng dáº§n.")
+            raise ValueError("insert_positions must be strictly increasing.")
 
         self.insert_positions = tuple(insert_positions)
         self.force_dino_eval = force_dino_eval
@@ -982,7 +982,7 @@ class DINOv2SRCADetector(nn.Module):
             nn.Dropout(dropout),
         )
 
-        # Hai projection riÃªng Ä‘á»ƒ Ä‘o orthogonality giá»¯a semantic vÃ  forensic.
+        # Separate projections for measuring semantic-forensic orthogonality.
         self.semantic_projection = nn.Sequential(
             nn.Linear(self.dino_dim * 2, projection_dim),
             nn.LayerNorm(projection_dim),
@@ -994,7 +994,7 @@ class DINOv2SRCADetector(nn.Module):
             nn.GELU(),
         )
 
-        # Embedding báº¥t biáº¿n Ä‘Æ°á»£c dÃ¹ng cho consistency loss.
+        # Invariant embedding used for the consistency loss.
         self.invariant_projection = nn.Sequential(
             nn.Linear(projection_dim * 2, projection_dim),
             nn.LayerNorm(projection_dim),
@@ -1020,7 +1020,7 @@ class DINOv2SRCADetector(nn.Module):
         patch_size = self.dino.patch_embed.patch_size
         if isinstance(patch_size, tuple):
             if patch_size[0] != patch_size[1]:
-                raise ValueError("Chá»‰ há»— trá»£ patch vuÃ´ng.")
+                raise ValueError("Only square patches are supported.")
             return int(patch_size[0])
         return int(patch_size)
 
@@ -1067,8 +1067,8 @@ class DINOv2SRCADetector(nn.Module):
         height, width = images.shape[-2:]
         if height % self.patch_size != 0 or width % self.patch_size != 0:
             raise ValueError(
-                f"KÃ­ch thÆ°á»›c áº£nh {(height, width)} pháº£i chia háº¿t "
-                f"cho patch size {self.patch_size}."
+                f"Image dimensions {(height, width)} must be divisible by "
+                f"the patch size {self.patch_size}."
             )
         return height // self.patch_size, width // self.patch_size
 
@@ -1085,7 +1085,7 @@ class DINOv2SRCADetector(nn.Module):
     ) -> Tuple[List[Tensor], Tensor]:
         rgb_features = self.rgb_extractor(images)
 
-        # SRM nÃªn Ä‘Æ°á»£c tÃ­nh trÃªn miá»n [0, 1], khÃ´ng pháº£i áº£nh Ä‘Ã£ normalize.
+        # SRM should operate in the [0, 1] domain, not on normalized images.
         raw_images = self._imagenet_denormalize(images)
         srm_images = self.srm_filter(raw_images)
         srm_features = self.srm_extractor(srm_images)
@@ -1112,7 +1112,7 @@ class DINOv2SRCADetector(nn.Module):
     def forward_features(self, images: Tensor) -> dict[str, Tensor]:
         if images.ndim != 4 or images.shape[1] != 3:
             raise ValueError(
-                f"Input pháº£i cÃ³ shape Bx3xHxW, nháº­n {tuple(images.shape)}."
+                f"Input must have shape Bx3xHxW; received {tuple(images.shape)}."
             )
 
         grid_size = self._get_patch_grid(images)
@@ -1334,10 +1334,10 @@ def training_loop(
     history = []
 
     for epoch in range(1, num_epochs + 1):
-        # Báº£o Ä‘áº£m khÃ´ng epoch nÃ o vÃ´ tÃ¬nh má»Ÿ gradient cho DINO.
+        # Ensure DINO gradients are never accidentally enabled.
         assert not any(p.requires_grad for p in model.dino.parameters())
 
-        # Auxiliary losses tÄƒng dáº§n Ä‘á»ƒ Ä‘áº§u training Æ°u tiÃªn há»c classifier á»•n Ä‘á»‹nh.
+        # Ramp up auxiliary losses so early training prioritizes a stable classifier.
         lambda_cons = min(0.20, 0.05 + 0.03 * (epoch - 1))
         lambda_orth = min(0.05, 0.01 + 0.01 * (epoch - 1))
 
@@ -1405,13 +1405,13 @@ def training_loop(
                 },
                 checkpoint_path,
             )
-            print(f"ÄÃ£ lÆ°u mÃ´ hÃ¬nh tá»‘t nháº¥t | Epoch: {epoch} | Val AUC: {best_auc:.4f}")
+            print(f"Saved best model | Epoch: {epoch} | Val AUC: {best_auc:.4f}")
         else:
             patience_count += 1
             print(f"Early stopping: {patience_count}/{early_stopping_patience}")
 
         if patience_count >= early_stopping_patience:
-            print("Dá»«ng sá»›m.")
+            print("Early stopping triggered.")
             break
 
     return history
