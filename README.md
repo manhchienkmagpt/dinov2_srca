@@ -24,17 +24,17 @@ them `--val-format ffpp`.
 ## Train
 
 ```bash
-python train.py \
-  --train-root /path/to/train \
-  --val-root /path/to/valid \
+python train.py `
+  --train-root /path/to/train `
+  --val-root /path/to/valid `
   --checkpoint checkpoints/best_dinov2_srca_generalized.pth
 ```
 
 ## Validate checkpoint tren bo du lieu FF++ khac
 
 ```bash
-python test_origin.py \
-  --data-root /path/to/dataset \
+python test_origin.py `
+  --data-root /path/to/dataset `
   --checkpoint checkpoints/best_dinov2_srca_generalized.pth
 ```
 
@@ -43,4 +43,26 @@ ma nguon va pretrained weights cua DINOv2 tu PyTorch Hub. Cai dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+
+## Test WDF
+```bash
+pip install -r requirements.txt
+
+python test_cross_1.py `
+  --data-root /path/to/cross_dataset `
+  --checkpoint checkpoints `
+  --batch-size 32 `
+  --output-json results/cross_1.json
+```
+
+## Test UADFV
+
+```bash
+python test_cross_2.py `
+  --data-root /path/to/dataset_root `
+  --checkpoint checkpoints `
+  --batch-size 32 `
+  --output-json results/cross_2.json
 ```
