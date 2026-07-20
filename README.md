@@ -1,0 +1,46 @@
+# DINOv2-SRCA deepfake detector
+
+Project duoc tach tu `DINOv2_SRCA_generalized.ipynb`.
+
+## Dataset
+
+Thu muc train theo cau truc FF++:
+
+```text
+dataset_root/
+  Real/
+  Deepfakes/
+  Face2Face/
+  FaceShifter/
+  FaceSwap/
+  NeuralTextures/
+```
+
+Anh co the nam truc tiep hoac trong cac thu muc con cua tung class.
+Mac dinh validation cua `train.py` giong notebook, theo cau truc
+`real/` va `fake/` cua Celeb-DF. De validation bang cau truc FF++ o tren,
+them `--val-format ffpp`.
+
+## Train
+
+```bash
+python train.py \
+  --train-root /path/to/train \
+  --val-root /path/to/valid \
+  --checkpoint checkpoints/best_dinov2_srca_generalized.pth
+```
+
+## Validate checkpoint tren bo du lieu FF++ khac
+
+```bash
+python test_origin.py \
+  --data-root /path/to/dataset \
+  --checkpoint checkpoints/best_dinov2_srca_generalized.pth
+```
+
+Them `--help` de xem tat ca tuy chon. Lan chay dau tien can mang de tai
+ma nguon va pretrained weights cua DINOv2 tu PyTorch Hub. Cai dependencies:
+
+```bash
+pip install -r requirements.txt
+```
