@@ -1,6 +1,9 @@
 numpy
 Pillow
 scikit-learn
+insightface
+opencv-python
+onnxruntime-gpu
 # torch
 # torchvision
 tqdm

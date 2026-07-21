@@ -24,10 +24,24 @@ them `--val-format ffpp`.
 ## Train
 
 ```bash
-python train.py `
+python train_dino.py `
   --train-root /path/to/train `
   --val-root /path/to/valid `
   --checkpoint checkpoints/best_dinov2_srca_generalized.pth
+```
+
+## Train DINOv2 + ArcFace Buffalo_L (GPU)
+
+ArcFace su dung CUDAExecutionProvider cua ONNX Runtime. Can cai
+onnxruntime-gpu va CUDA/cuDNN tuong thich truoc khi train.
+
+```bash
+python train_arcface_dino.py `
+  --train-root /path/to/train `
+  --val-root /path/to/valid `
+  --dino-checkpoint checkpoints/best_dinov2_srca_generalized.pth `
+  --checkpoint checkpoints/best_dino_arcface_fusion.pth `
+  --arcface-provider cuda
 ```
 
 ## Validate checkpoint tren bo du lieu FF++ khac
