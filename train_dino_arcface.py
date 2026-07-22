@@ -16,8 +16,26 @@ fusion layers, SRCA/CNN branches, and classifier are trained.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import random
+import warnings
 from typing import Sequence
+
+# InsightFace currently calls a deprecated scikit-image API. Suppress only
+# that third-party notice while keeping every other warning visible.
+warnings.filterwarnings(
+    "ignore",
+    message=r"`estimate` is deprecated.*",
+    category=FutureWarning,
+    module=r"insightface\.utils\.face_align",
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r"xFormers is not available \((SwiGLU|Attention|Block)\)",
+    category=UserWarning,
+    module=r"dinov2\.layers\.(swiglu_ffn|attention|block)",
+)
 
 import numpy as np
 import torch
@@ -62,16 +80,19 @@ class FrozenBuffaloL:
             if provider == "cuda"
             else ["CPUExecutionProvider"]
         )
-        self.app = FaceAnalysis(
-            name="buffalo_l",
-            root=model_root,
-            allowed_modules=["detection", "recognition"],
-            providers=providers,
-        )
-        self.app.prepare(
-            ctx_id=0 if provider == "cuda" else -1,
-            det_size=(det_size, det_size),
-        )
+        # InsightFace prints provider/model discovery details directly to stdout.
+        # Keep initialization quiet while leaving stderr and exceptions intact.
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.app = FaceAnalysis(
+                name="buffalo_l",
+                root=model_root,
+                allowed_modules=["detection", "recognition"],
+                providers=providers,
+            )
+            self.app.prepare(
+                ctx_id=0 if provider == "cuda" else -1,
+                det_size=(det_size, det_size),
+            )
 
     @staticmethod
     def _to_bgr_uint8(images: Tensor) -> list[np.ndarray]:
@@ -258,9 +279,9 @@ def parse_args():
         "--checkpoint", default="checkpoints/best_dinov2_srca_arcface.pth"
     )
     parser.add_argument("--epochs", type=int, default=30)
-    parser.add_argument("--batch-size", type=int, default=24)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--patience", type=int, default=6)
+    parser.add_argument("--patience", type=int, default=30)
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--arcface-provider", choices=("cuda", "cpu"), default="cuda")
@@ -319,7 +340,7 @@ def main() -> None:
           "name": "srca_arcface_fusion"}]
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=0.5, patience=2, min_lr=1e-7
+        optimizer, mode="max", factor=0.5, patience=3, min_lr=1e-7
     )
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
 
@@ -344,5 +365,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
 
 
