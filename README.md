@@ -36,12 +36,11 @@ ArcFace su dung CUDAExecutionProvider cua ONNX Runtime. Can cai
 onnxruntime-gpu va CUDA/cuDNN tuong thich truoc khi train.
 
 ```bash
-python train_arcface_dino.py `
+python train_dino_arcface.py `
   --train-root /path/to/train `
   --val-root /path/to/valid `
-  --dino-checkpoint checkpoints/best_dinov2_srca_generalized.pth `
-  --checkpoint checkpoints/best_dino_arcface_fusion.pth `
-  --arcface-provider cuda
+  --arcface-provider cuda `
+  --checkpoint checkpoints/best_dinov2_srca_arcface.pth
 ```
 
 ## Validate checkpoint tren bo du lieu FF++ khac
