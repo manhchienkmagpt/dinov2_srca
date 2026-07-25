@@ -30,19 +30,6 @@ python train_dino.py `
   --checkpoint checkpoints/best_dinov2_srca_generalized.pth
 ```
 
-## Train DINOv2 + ArcFace Buffalo_L (GPU)
-
-ArcFace su dung CUDAExecutionProvider cua ONNX Runtime. Can cai
-onnxruntime-gpu va CUDA/cuDNN tuong thich truoc khi train.
-
-```bash
-python train_dino_arcface.py `
-  --train-root /path/to/train `
-  --val-root /path/to/valid `
-  --arcface-provider cuda `
-  --checkpoint checkpoints/best_dinov2_srca_arcface.pth
-```
-
 ## Validate checkpoint tren bo du lieu FF++ khac
 
 ```bash
@@ -79,3 +66,8 @@ python test_cross_2.py `
   --batch-size 32 `
   --output-json results/cross_2.json
 ```
+
+## Dataflow
+<p align="center">
+  <img src="assets/pipeline.png" width="900">
+</p>
